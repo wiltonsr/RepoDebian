@@ -112,7 +112,7 @@ EOF
   for COMP in $COMPONENTS; do
     for ARCH in $ARCHITECTURES; do
       cd $LOCATION/$REPO/dists/$DISTRIBUTION/$COMP/binary-$ARCH
-      apt-ftparchive release -c release.conf > Release
+      apt-ftparchive release -c release.conf . > Release
     done
   done
 
