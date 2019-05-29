@@ -101,29 +101,28 @@ APT::FTPArchive::Release::Label "Debian Caixa Economica Federal";
 APT::FTPArchive::Release::Architectures "$ARCHITECTURES";
 EOF
 
-for COMP in $COMPONENTS; do
-  for ARCH in $ARCHITECTURES; do
-    cd $LOCATION/$REPO
-    apt-ftparchive -a $ARCH packages pool/$DISTRIBUTION/$COMP > $LOCATION/$REPO/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
-    gzip -kf $LOCATION/$REPO/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+  for COMP in $COMPONENTS; do
+    for ARCH in $ARCHITECTURES; do
+      cd $LOCATION/$REPO
+      apt-ftparchive -a $ARCH packages pool/$DISTRIBUTION/$COMP > $LOCATION/$REPO/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+      gzip -kf $LOCATION/$REPO/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+    done
   done
-done
 
-for COMP in $COMPONENTS; do
-  for ARCH in $ARCHITECTURES; do
-    cd $LOCATION/$REPO/dists/$DISTRIBUTION/$COMP/binary-$ARCH
-    apt-ftparchive release -c release.conf > Release
+  for COMP in $COMPONENTS; do
+    for ARCH in $ARCHITECTURES; do
+      cd $LOCATION/$REPO/dists/$DISTRIBUTION/$COMP/binary-$ARCH
+      apt-ftparchive release -c release.conf > Release
+    done
   done
-done
 
-cd $LOCATION/$REPO/dists/$DISTRIBUTION
-apt-ftparchive release -c release.conf . > Release
+  cd $LOCATION/$REPO/dists/$DISTRIBUTION
+  apt-ftparchive release -c release.conf . > Release
 
-echo "All done!"
-echo "Put this in your source.list"
-echo "deb [trusted=yes] $URI $DISTRIBUTION $COMPONENTS"
+  echo "All done!"
+  echo "Put this in your source.list"
+  echo "deb [trusted=yes] $URI $DISTRIBUTION $COMPONENTS"
 }
 
 main "$@";
-# exit
 
