@@ -60,7 +60,7 @@ function main
 
   for COMP in $COMPONENTS; do
     cd $LOCATION/$REPO
-    ARCHITECTURES=$(ls -d dists/stable/main/binary* | cut -d"-" -f2)
+    ARCHITECTURES=$(ls -d dists/$REPO/$COMP/binary* | cut -d"-" -f2)
     for ARCH in $ARCHITECTURES; do
       apt-ftparchive -a $ARCH packages pool/$DISTRIBUTION/$COMP > $LOCATION/$REPO/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
       gzip -kf $LOCATION/$REPO/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
@@ -69,7 +69,7 @@ function main
 
   for COMP in $COMPONENTS; do
     cd $LOCATION/$REPO
-    ARCHITECTURES=$(ls -d dists/stable/main/binary* | cut -d"-" -f2)
+    ARCHITECTURES=$(ls -d dists/$REPO/$COMP/binary* | cut -d"-" -f2)
     for ARCH in $ARCHITECTURES; do
       cd $LOCATION/$REPO/dists/$DISTRIBUTION/$COMP/binary-$ARCH
       apt-ftparchive release -c release.conf > Release
