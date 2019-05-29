@@ -27,7 +27,7 @@ function parse_args
   while [ "$1" != "" ]; do
     case "$1" in
       -l | --location )            LOCATION="$2";               shift;;
-      -u | --uri )                 URI="$2";                    shift;;
+      -r | --repository )          REPO="$2";                   shift;;
       -d | --distribution )        DISTRIBUTION="$2";           shift;;
       -c | --components )          COMPONENTS="$2";             shift;;
       -h | --help )                usage;                       exit;; # quit and show usage
