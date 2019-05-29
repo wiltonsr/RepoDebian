@@ -15,7 +15,7 @@ function usage
   echo "  -d , --distribution   : The distribution specifies what subdirectory in dists will be updated.";
   echo "                          Default: stable";
   echo "  -c , --components     : The components specifies what subdirectories in dists/\$distribution will be updated.";
-  echo "                          Default: main contrib non-free";
+  echo "                          Default: All components found in \$location/\$repository/dists/\$distribution/Release file";
   echo "  -h , --help           : This mensage";
 }
 
@@ -48,7 +48,9 @@ function parse_args
     DISTRIBUTION="stable";
   fi
   if [[ -z "$COMPONENTS" ]]; then
-    COMPONENTS="main contrib non-free";
+    COMPONENTS=$(cat $LOCATION/$REPO/dists/$DISTRIBUTION/Release | \
+      grep Components | \
+      cut -d ":" -f2);
   fi
 }
 
