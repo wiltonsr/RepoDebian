@@ -103,11 +103,9 @@ EOF
 
 for COMP in $COMPONENTS; do
   for ARCH in $ARCHITECTURES; do
-    if [ $(ls -l $LOCATION/$REPO/pool/$DISTRIBUTION/$COMP/*.deb 2>/dev/null | wc -l) -gt 0 ]; then
-      cd $LOCATION/$REPO
-      apt-ftparchive -a $ARCH packages pool/$DISTRIBUTION/$COMP > $LOCATION/$REPO/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
-      gzip -kf $LOCATION/$REPO/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
-    fi
+    cd $LOCATION/$REPO
+    apt-ftparchive -a $ARCH packages pool/$DISTRIBUTION/$COMP > $LOCATION/$REPO/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+    gzip -kf $LOCATION/$REPO/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
   done
 done
 
