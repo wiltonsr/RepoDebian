@@ -65,9 +65,7 @@ function main
 {
   parse_args "$@"
 
-  echo $URI | grep -qo "http://"
-  GREP_RESULT=$?
-  if [ $GREP_RESULT -ne 0 ]; then
+  if ! [[ $URI == *"http://"* ]]; then
     URI="http://${URI}"
   fi
 
