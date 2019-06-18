@@ -259,7 +259,7 @@ if [ "${MODE}" == "create" ]; then
   createRepo
   echo "All done!"
   echo "Put this in your source.list"
-  echo "deb [trusted=yes] http://repository-address.com/$REPOSITORY $DISTRIBUTION $COMPONENTS"
+  echo "deb [trusted=yes] http://repository-address.com/$REPOSITORIES $DISTRIBUTION $COMPONENTS"
 elif [ "${MODE}" == "update" ]; then
   updateRepo
   echo "All done!"
