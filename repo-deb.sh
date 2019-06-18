@@ -19,6 +19,15 @@ function isLocationWritable () {
   fi
 }
 
+function listArchDirs () {
+    cd $LOCATION/$REPOSITORY
+    DISTRIBUTION=$1
+    COMP=$2
+    local ARCHITECTURES=$(ls -d dists/$DISTRIBUTION/$COMP/binary* |
+    awk '{n=split($1,A,"-"); print A[n]}')
+    echo "$ARCHITECTURES"
+}
+
 # Create repository
 function createRepo () {
   if isLocationWritable; then
@@ -60,22 +69,50 @@ EOF
 
     cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION
     apt-ftparchive release -c release.conf . > Release
-
-    echo "All done!"
-    echo "Put this in your source.list"
-    echo "deb [trusted=yes] http://ip-address.com/$REPOSITORY $DISTRIBUTION $COMPONENTS"
   fi
 }
 
 # Update repository
 function updateRepo() {
-  echo $LOCATION
+  if [ "$FLAG_DISTRIBUTION" != "1" ]; then
+    DISTRIBUTION=$(ls $LOCATION/$REPOSITORY/dists)
+  fi
+  for DIST in $DISTRIBUTION; do
+    if [ "$FLAG_COMPONENTS" != "1" ]; then
+      COMPONENTS=$(grep Components $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/Release | \
+        cut -d ":" -f2)
+    fi
+    for COMP in $COMPONENTS; do
+      cd $LOCATION/$REPOSITORY
+      if [ "$FLAG_ARCHITECTURES" != "1" ]; then
+        ARCHITECTURES=$(listArchDirs $DIST $COMP)
+      fi
+      for ARCH in $ARCHITECTURES; do
+        apt-ftparchive -a $ARCH packages pool/$DISTRIBUTION/$COMP > $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+        gzip -kf $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+      done
+    done
+
+    for COMP in $COMPONENTS; do
+      cd $LOCATION/$REPOSITORY
+      if [ "$FLAG_ARCHITECTURES" != "1" ]; then
+        ARCHITECTURES=$(listArchDirs $DIST $COMP)
+      fi
+      for ARCH in $ARCHITECTURES; do
+        cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH
+        apt-ftparchive release -c release.conf > Release
+      done
+    done
+
+    cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION
+    apt-ftparchive release -c release.conf . > Release
+  done
 }
 
 # Print the usage message
 function printHelp () {
   echo "Usage: "
-  echo "  repo-deb.sh -m create|update [-c <channel name>] [-t <timeout>] [-d <delay>] [-f <docker-compose-file>] [-s <dbtype>]"
+  echo "  repo-deb.sh -m create|update [-l <location>] [-r <repository>] [-d <distribution>] [-c '<list of components>'] [-a '<list of architectures>']"
   echo "  repo-deb.sh -h (print this message)"
   echo "    -m <mode> - one of 'create' or 'update'"
   echo "      - 'create' - create all folders structure to start an Debian Repository"
@@ -127,10 +164,13 @@ while getopts ":m:l:r:d:c:a:hf" opt; do
     r)  REPOSITORY=$OPTARG
       ;;
     d)  DISTRIBUTION=$OPTARG
+        FLAG_DISTRIBUTION=1
       ;;
     c)  COMPONENTS=$OPTARG
+        FLAG_COMPONENTS=1
       ;;
     a)  ARCHITECTURES=$OPTARG
+        FLAG_ARCHITECTURES=1
       ;;
     f)  FORCE=1
       ;;
@@ -170,8 +210,12 @@ command -v apt-ftparchive >/dev/null 2>&1 || { echo >&2 "I required apt-ftparchi
 
 if [ "${MODE}" == "create" ]; then
   createRepo
+  echo "All done!"
+  echo "Put this in your source.list"
+  echo "deb [trusted=yes] http://repository-address.com/$REPOSITORY $DISTRIBUTION $COMPONENTS"
 elif [ "${MODE}" == "update" ]; then
   updateRepo
+  echo "All done!"
 else
   printHelp
   exit 1
