@@ -4,10 +4,22 @@
 set -e
 
 LOCATION="/var/www/html";
-REPOSITORY="debian";
+REPOSITORIES="debian";
 DISTRIBUTION="stable";
 COMPONENTS="main contrib non-free";
 ARCHITECTURES="i386 amd64 all";
+
+function validRepositories() {
+  cd $LOCATION
+  local VALID_REPOS=""
+  for REPO in $(ls); do
+    if [[ ( -d "${REPO}/dists" ) && ( -d "${REPO}/pool" ) ]]; then
+      VALID_REPOS+=$REPO
+      VALID_REPOS+=" "
+    fi
+  done
+  echo "$VALID_REPOS"
+}
 
 function isLocationWritable () {
   mkdir -p $LOCATION
@@ -31,21 +43,21 @@ function listArchDirs () {
 # Create repository
 function createRepo () {
   if isLocationWritable; then
-    mkdir -p $LOCATION/$REPOSITORY/{dists,pool}
+    mkdir -p $LOCATION/$REPOSITORIES/{dists,pool}
     for COMP in $COMPONENTS; do
       for ARCH in $ARCHITECTURES; do
-        mkdir -p $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH
-cat << EOF > $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/release.conf
+        mkdir -p $LOCATION/$REPOSITORIES/dists/$DISTRIBUTION/$COMP/binary-$ARCH
+cat << EOF > $LOCATION/$REPOSITORIES/dists/$DISTRIBUTION/$COMP/binary-$ARCH/release.conf
 APT::FTPArchive::Release::Codename "$DISTRIBUTION";
 APT::FTPArchive::Release::Components "$COMP";
 APT::FTPArchive::Release::Label "Debian Caixa Economica Federal";
 APT::FTPArchive::Release::Architectures "$ARCH";
 EOF
       done
-      mkdir -p $LOCATION/$REPOSITORY/pool/$DISTRIBUTION/$COMP
+      mkdir -p $LOCATION/$REPOSITORIES/pool/$DISTRIBUTION/$COMP
     done
 
-cat << EOF > $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/release.conf
+cat << EOF > $LOCATION/$REPOSITORIES/dists/$DISTRIBUTION/release.conf
 APT::FTPArchive::Release::Codename "$DISTRIBUTION";
 APT::FTPArchive::Release::Components "$COMPONENTS";
 APT::FTPArchive::Release::Label "Debian Caixa Economica Federal";
@@ -54,20 +66,20 @@ EOF
 
     for COMP in $COMPONENTS; do
       for ARCH in $ARCHITECTURES; do
-        cd $LOCATION/$REPOSITORY
-        apt-ftparchive -a $ARCH packages pool/$DISTRIBUTION/$COMP > $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
-        gzip -kf $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+        cd $LOCATION/$REPOSITORIES
+        apt-ftparchive -a $ARCH packages pool/$DISTRIBUTION/$COMP > $LOCATION/$REPOSITORIES/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+        gzip -kf $LOCATION/$REPOSITORIES/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
       done
     done
 
     for COMP in $COMPONENTS; do
       for ARCH in $ARCHITECTURES; do
-        cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH
+        cd $LOCATION/$REPOSITORIES/dists/$DISTRIBUTION/$COMP/binary-$ARCH
         apt-ftparchive release -c release.conf . > Release
       done
     done
 
-    cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION
+    cd $LOCATION/$REPOSITORIES/dists/$DISTRIBUTION
     apt-ftparchive release -c release.conf . > Release
   fi
 }
@@ -75,38 +87,40 @@ EOF
 # Update repository
 function updateRepo() {
   if isLocationWritable; then
-    if [ "$FLAG_DISTRIBUTION" != "1" ]; then
-      DISTRIBUTION=$(ls $LOCATION/$REPOSITORY/dists)
-    fi
-    for DIST in $DISTRIBUTION; do
-      if [ "$FLAG_COMPONENTS" != "1" ]; then
-        COMPONENTS=$(grep Components $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/Release | \
-          cut -d ":" -f2)
+    for REPOSITORY in $REPOSITORIES; do
+      if [ "$FLAG_DISTRIBUTION" != "1" ]; then
+        DISTRIBUTION=$(ls $LOCATION/$REPOSITORY/dists)
       fi
-      for COMP in $COMPONENTS; do
-        cd $LOCATION/$REPOSITORY
-        if [ "$FLAG_ARCHITECTURES" != "1" ]; then
-          ARCHITECTURES=$(listArchDirs $DIST $COMP)
+      for DIST in $DISTRIBUTION; do
+        if [ "$FLAG_COMPONENTS" != "1" ]; then
+          COMPONENTS=$(grep Components $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/Release | \
+            cut -d ":" -f2)
         fi
-        for ARCH in $ARCHITECTURES; do
-          apt-ftparchive -a $ARCH packages pool/$DISTRIBUTION/$COMP > $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
-          gzip -kf $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+        for COMP in $COMPONENTS; do
+          cd $LOCATION/$REPOSITORY
+          if [ "$FLAG_ARCHITECTURES" != "1" ]; then
+            ARCHITECTURES=$(listArchDirs $DIST $COMP)
+          fi
+          for ARCH in $ARCHITECTURES; do
+            apt-ftparchive -a $ARCH packages pool/$DISTRIBUTION/$COMP > $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+            gzip -kf $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+          done
         done
-      done
 
-      for COMP in $COMPONENTS; do
-        cd $LOCATION/$REPOSITORY
-        if [ "$FLAG_ARCHITECTURES" != "1" ]; then
-          ARCHITECTURES=$(listArchDirs $DIST $COMP)
-        fi
-        for ARCH in $ARCHITECTURES; do
-          cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH
-          apt-ftparchive release -c release.conf > Release
+        for COMP in $COMPONENTS; do
+          cd $LOCATION/$REPOSITORY
+          if [ "$FLAG_ARCHITECTURES" != "1" ]; then
+            ARCHITECTURES=$(listArchDirs $DIST $COMP)
+          fi
+          for ARCH in $ARCHITECTURES; do
+            cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH
+            apt-ftparchive release -c release.conf > Release
+          done
         done
-      done
 
-      cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION
-      apt-ftparchive release -c release.conf . > Release
+        cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION
+        apt-ftparchive release -c release.conf . > Release
+      done
     done
   fi
 }
@@ -163,7 +177,8 @@ while getopts ":m:l:r:d:c:a:hf" opt; do
       ;;
     l)  LOCATION=$OPTARG
       ;;
-    r)  REPOSITORY=$OPTARG
+    r)  REPOSITORIES=$OPTARG
+        FLAG_REPOSITORIES=1
       ;;
     d)  DISTRIBUTION=$OPTARG
         FLAG_DISTRIBUTION=1
@@ -196,6 +211,9 @@ if [ "$MODE" == "create" ]; then
   EXPMODE="Creating"
 elif [ "$MODE" == "update" ]; then
   EXPMODE="Updating"
+  if [ "$FLAG_REPOSITORIES" != "1" ]; then
+    REPOSITORIES=$(validRepositories)
+  fi
 else
   echo "Specify a valid execution mode."
   echo
@@ -203,7 +221,10 @@ else
   exit 1
 fi
 
-echo "${EXPMODE} repository '${REPOSITORY}' in '${LOCATION}' from '${DISTRIBUTION}' distribution with '${COMPONENTS}' components and '${ARCHITECTURES}' architectures."
+for REPO in $REPOSITORIES; do
+  echo "${EXPMODE} repository '${REPO}' in '${LOCATION}' from '${DISTRIBUTION}' distribution with '${COMPONENTS}' components and '${ARCHITECTURES}' architectures."
+  echo
+done
 
 # ask for confirmation to proceed
 askProceed
