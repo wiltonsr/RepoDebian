@@ -74,39 +74,41 @@ EOF
 
 # Update repository
 function updateRepo() {
-  if [ "$FLAG_DISTRIBUTION" != "1" ]; then
-    DISTRIBUTION=$(ls $LOCATION/$REPOSITORY/dists)
-  fi
-  for DIST in $DISTRIBUTION; do
-    if [ "$FLAG_COMPONENTS" != "1" ]; then
-      COMPONENTS=$(grep Components $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/Release | \
-        cut -d ":" -f2)
+  if isLocationWritable; then
+    if [ "$FLAG_DISTRIBUTION" != "1" ]; then
+      DISTRIBUTION=$(ls $LOCATION/$REPOSITORY/dists)
     fi
-    for COMP in $COMPONENTS; do
-      cd $LOCATION/$REPOSITORY
-      if [ "$FLAG_ARCHITECTURES" != "1" ]; then
-        ARCHITECTURES=$(listArchDirs $DIST $COMP)
+    for DIST in $DISTRIBUTION; do
+      if [ "$FLAG_COMPONENTS" != "1" ]; then
+        COMPONENTS=$(grep Components $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/Release | \
+          cut -d ":" -f2)
       fi
-      for ARCH in $ARCHITECTURES; do
-        apt-ftparchive -a $ARCH packages pool/$DISTRIBUTION/$COMP > $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
-        gzip -kf $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+      for COMP in $COMPONENTS; do
+        cd $LOCATION/$REPOSITORY
+        if [ "$FLAG_ARCHITECTURES" != "1" ]; then
+          ARCHITECTURES=$(listArchDirs $DIST $COMP)
+        fi
+        for ARCH in $ARCHITECTURES; do
+          apt-ftparchive -a $ARCH packages pool/$DISTRIBUTION/$COMP > $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+          gzip -kf $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+        done
       done
-    done
 
-    for COMP in $COMPONENTS; do
-      cd $LOCATION/$REPOSITORY
-      if [ "$FLAG_ARCHITECTURES" != "1" ]; then
-        ARCHITECTURES=$(listArchDirs $DIST $COMP)
-      fi
-      for ARCH in $ARCHITECTURES; do
-        cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH
-        apt-ftparchive release -c release.conf > Release
+      for COMP in $COMPONENTS; do
+        cd $LOCATION/$REPOSITORY
+        if [ "$FLAG_ARCHITECTURES" != "1" ]; then
+          ARCHITECTURES=$(listArchDirs $DIST $COMP)
+        fi
+        for ARCH in $ARCHITECTURES; do
+          cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH
+          apt-ftparchive release -c release.conf > Release
+        done
       done
-    done
 
-    cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION
-    apt-ftparchive release -c release.conf . > Release
-  done
+      cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION
+      apt-ftparchive release -c release.conf . > Release
+    done
+  fi
 }
 
 # Print the usage message
@@ -174,7 +176,7 @@ while getopts ":m:l:r:d:c:a:hf" opt; do
       ;;
     f)  FORCE=1
       ;;
-    h\?)
+    h|\?)
       printHelp
       exit 0
       ;;
