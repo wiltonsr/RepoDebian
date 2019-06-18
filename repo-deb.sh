@@ -21,6 +21,20 @@ function validRepositories() {
   echo "$VALID_REPOS"
 }
 
+function listDistDirs() {
+  REPOSITORY=$1
+  DISTRIBUTION=$(ls $LOCATION/$REPOSITORY/dists)
+  echo "$DISTRIBUTION"
+}
+
+function listCompDirs() {
+  REPOSITORY=$1
+  DISTRIBUTION=$2
+  COMPONENTS=$(grep Components $LOCATION/$REPOSITORY/dists/$DIST/Release | \
+    cut -d ":" -f2)
+  echo "$COMPONENTS"
+}
+
 function isLocationWritable () {
   mkdir -p $LOCATION
   if ! [ -w $LOCATION ]; then
@@ -32,9 +46,10 @@ function isLocationWritable () {
 }
 
 function listArchDirs () {
+    REPOSITORY=$1
+    DISTRIBUTION=$2
+    COMP=$3
     cd $LOCATION/$REPOSITORY
-    DISTRIBUTION=$1
-    COMP=$2
     local ARCHITECTURES=$(ls -d dists/$DISTRIBUTION/$COMP/binary* |
     awk '{n=split($1,A,"-"); print A[n]}')
     echo "$ARCHITECTURES"
@@ -89,36 +104,35 @@ function updateRepo() {
   if isLocationWritable; then
     for REPOSITORY in $REPOSITORIES; do
       if [ "$FLAG_DISTRIBUTION" != "1" ]; then
-        DISTRIBUTION=$(ls $LOCATION/$REPOSITORY/dists)
+        DISTRIBUTION=$(listDistDirs $REPOSITORY)
       fi
       for DIST in $DISTRIBUTION; do
         if [ "$FLAG_COMPONENTS" != "1" ]; then
-          COMPONENTS=$(grep Components $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/Release | \
-            cut -d ":" -f2)
+          COMPONENTS=$(listCompDirs $REPOSITORY $DIST)
         fi
         for COMP in $COMPONENTS; do
           cd $LOCATION/$REPOSITORY
           if [ "$FLAG_ARCHITECTURES" != "1" ]; then
-            ARCHITECTURES=$(listArchDirs $DIST $COMP)
+            ARCHITECTURES=$(listArchDirs $REPOSITORY $DIST $COMP)
           fi
           for ARCH in $ARCHITECTURES; do
-            apt-ftparchive -a $ARCH packages pool/$DISTRIBUTION/$COMP > $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
-            gzip -kf $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH/Packages
+            apt-ftparchive -a $ARCH packages pool/$DIST/$COMP > $LOCATION/$REPOSITORY/dists/$DIST/$COMP/binary-$ARCH/Packages
+            gzip -kf $LOCATION/$REPOSITORY/dists/$DIST/$COMP/binary-$ARCH/Packages
           done
         done
 
         for COMP in $COMPONENTS; do
           cd $LOCATION/$REPOSITORY
           if [ "$FLAG_ARCHITECTURES" != "1" ]; then
-            ARCHITECTURES=$(listArchDirs $DIST $COMP)
+            ARCHITECTURES=$(listArchDirs $REPOSITORY $DIST $COMP)
           fi
           for ARCH in $ARCHITECTURES; do
-            cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP/binary-$ARCH
+            cd $LOCATION/$REPOSITORY/dists/$DIST/$COMP/binary-$ARCH
             apt-ftparchive release -c release.conf > Release
           done
         done
 
-        cd $LOCATION/$REPOSITORY/dists/$DISTRIBUTION
+        cd $LOCATION/$REPOSITORY/dists/$DIST
         apt-ftparchive release -c release.conf . > Release
       done
     done
@@ -209,11 +223,25 @@ fi
 # Determine whether creating or updating
 if [ "$MODE" == "create" ]; then
   EXPMODE="Creating"
+  echo "${EXPMODE} repository '${REPOSITORIES}' in '${LOCATION}' from '${DISTRIBUTION}' distribution with '${COMPONENTS}' components and '${ARCHITECTURES}' architectures."
+  echo
 elif [ "$MODE" == "update" ]; then
   EXPMODE="Updating"
   if [ "$FLAG_REPOSITORIES" != "1" ]; then
     REPOSITORIES=$(validRepositories)
   fi
+  for REPO in $REPOSITORIES; do
+    if [ "$FLAG_DISTRIBUTION" != "1" ]; then
+      DISTRIBUTION=$(listDistDirs $REPO)
+    fi
+    for DIST in $DISTRIBUTION; do
+      if [ "$FLAG_COMPONENTS" != "1" ]; then
+        COMPONENTS=$(listCompDirs $REPO $DIST)
+      fi
+      echo "${EXPMODE} repository '${REPO}' in '${LOCATION}' from '${DIST}' distribution with '${COMPONENTS}' components."
+      echo
+    done
+  done
 else
   echo "Specify a valid execution mode."
   echo
@@ -221,10 +249,6 @@ else
   exit 1
 fi
 
-for REPO in $REPOSITORIES; do
-  echo "${EXPMODE} repository '${REPO}' in '${LOCATION}' from '${DISTRIBUTION}' distribution with '${COMPONENTS}' components and '${ARCHITECTURES}' architectures."
-  echo
-done
 
 # ask for confirmation to proceed
 askProceed
