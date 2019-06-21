@@ -30,9 +30,27 @@ function listDistDirs() {
 function listCompDirs() {
   REPOSITORY=$1
   DISTRIBUTION=$2
-  COMPONENTS=$(grep Components $LOCATION/$REPOSITORY/dists/$DIST/Release | \
-    cut -d ":" -f2)
+  local COMPONENTS=""
+  for COMP in $(ls $LOCATION/$REPOSITORY/dists/$DISTRIBUTION); do
+    if [[ -d "$LOCATION/$REPOSITORY/dists/$DISTRIBUTION/$COMP" ]]; then
+      COMPONENTS+=$COMP
+      COMPONENTS+=" "
+    fi
+  done
   echo "$COMPONENTS"
+}
+function updateDistReleaseConf () {
+  REPOSITORIES=$1
+  DISTRIBUTION=$2
+  ARCHITECTURES=$3
+  ALL_COMPS=$(listCompDirs $REPOSITORIES $DISTRIBUTION)
+
+cat << EOF > $LOCATION/$REPOSITORIES/dists/$DISTRIBUTION/release.conf
+APT::FTPArchive::Release::Codename "$DISTRIBUTION";
+APT::FTPArchive::Release::Components "$ALL_COMPS";
+APT::FTPArchive::Release::Label "Debian Caixa Economica Federal";
+APT::FTPArchive::Release::Architectures "$ARCHITECTURES";
+EOF
 }
 
 function isLocationWritable () {
@@ -51,7 +69,8 @@ function listArchDirs () {
     COMP=$3
     cd $LOCATION/$REPOSITORY
     local ARCHITECTURES=$(ls -d dists/$DISTRIBUTION/$COMP/binary* |
-    awk '{n=split($1,A,"-"); print A[n]}')
+    awk '{n=split($1,A,"-"); print A[n]}' |
+    tr '\n' ' ')
     echo "$ARCHITECTURES"
 }
 
@@ -72,12 +91,7 @@ EOF
       mkdir -p $LOCATION/$REPOSITORIES/pool/$DISTRIBUTION/$COMP
     done
 
-cat << EOF > $LOCATION/$REPOSITORIES/dists/$DISTRIBUTION/release.conf
-APT::FTPArchive::Release::Codename "$DISTRIBUTION";
-APT::FTPArchive::Release::Components "$COMPONENTS";
-APT::FTPArchive::Release::Label "Debian Caixa Economica Federal";
-APT::FTPArchive::Release::Architectures "$ARCHITECTURES";
-EOF
+    updateDistReleaseConf $REPOSITORIES $DISTRIBUTION "$ARCHITECTURES"
 
     for COMP in $COMPONENTS; do
       for ARCH in $ARCHITECTURES; do
@@ -132,6 +146,7 @@ function updateRepo() {
           done
         done
 
+        updateDistReleaseConf $REPOSITORY $DIST "$ARCHITECTURES"
         cd $LOCATION/$REPOSITORY/dists/$DIST
         apt-ftparchive release -c release.conf . > Release
       done
