@@ -26,14 +26,24 @@ function validRepositories() {
       VALID_REPOS+=" "
     fi
   done
-  echo "$VALID_REPOS"
+  if [ -z "$VALID_REPOS" ]; then
+    echo -e "${RED}Error: ${NC} there is no valid repository." >&2
+    exit 2
+  else
+    echo "$VALID_REPOS"
+  fi
 }
 
 function listDistDirs() {
   set -e
   REPOSITORY=$1
   DISTRIBUTION=$(ls $LOCATION/$REPOSITORY/dists)
-  echo "$DISTRIBUTION"
+  if [ -z "$DISTRIBUTION" ]; then
+    echo -e "${RED}Error: ${NC} there is no valid distribution on repository '${WHITE}${REPOSITORY}${NC}'." >&2
+    exit 2
+  else
+    echo "$DISTRIBUTION"
+  fi
 }
 
 function listCompDirs() {
@@ -47,7 +57,12 @@ function listCompDirs() {
       COMPONENTS+=" "
     fi
   done
-  echo "$COMPONENTS"
+  if [ -z "$COMPONENTS" ]; then
+    echo -e "${RED}Error: ${NC} there is no valid components on repository '${WHITE}${REPOSITORY}${NC}' from '${WHITE}${DISTRIBUTION}${NC}' distribution." >&2
+    exit 2
+  else
+    echo "$COMPONENTS"
+  fi
 }
 
 function updateDistReleaseConf () {
@@ -193,6 +208,14 @@ function deleteRepo() {
         for DIST in $DISTRIBUTION; do
           rm -rf $LOCATION/$REPOSITORY/dists/$DIST
           rm -rf $LOCATION/$REPOSITORY/pool/$DIST
+          if ! [[ -d "$LOCATION/$REPOSITORY/dists"  &&
+            -n "$(ls -A $LOCATION/$REPOSITORY/dists)" ]]; then
+            rm -rf $LOCATION/$REPOSITORY/dists
+          fi
+          if ! [[ -d "$LOCATION/$REPOSITORY/pool"  &&
+            -n "$(ls -A $LOCATION/$REPOSITORY/pool)" ]]; then
+            rm -rf $LOCATION/$REPOSITORY/pool
+          fi
         done
       done
     elif [[ "$FLAG_REPOSITORIES" == "1" &&
