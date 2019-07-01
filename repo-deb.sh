@@ -8,6 +8,13 @@ REPOSITORIES="debian";
 DISTRIBUTION="stable";
 COMPONENTS="main contrib non-free";
 ARCHITECTURES="i386 amd64 all";
+#colors
+BOLD="\e[1m"
+RED="\e[31m${BOLD}"
+GREEN="\e[32m${BOLD}"
+YELLOW="\e[33m${BOLD}"
+WHITE="\e[97m${BOLD}"
+NC="\e[0m" # no-color
 
 function validRepositories() {
   set -e
@@ -293,7 +300,7 @@ fi
 # Determine whether creating or updating
 if [ "$MODE" == "create" ]; then
   EXPMODE="Creating"
-  echo "${EXPMODE} repository '${REPOSITORIES}' in '${LOCATION}' from '${DISTRIBUTION}' distribution with '${COMPONENTS}' components and '${ARCHITECTURES}' architectures."
+  echo -e "${GREEN}${EXPMODE}${NC} repository '${WHITE}${REPOSITORIES}${NC}' in '${WHITE}${LOCATION}${NC}' from '${WHITE}${DISTRIBUTION}${NC}' distribution with '${WHITE}${COMPONENTS}${NC}' components and '${WHITE}${ARCHITECTURES}${NC}' architectures."
   echo
 elif [ "$MODE" == "update" ]; then
   EXPMODE="Updating"
@@ -308,7 +315,7 @@ elif [ "$MODE" == "update" ]; then
       if [ "$FLAG_COMPONENTS" != "1" ]; then
         COMPONENTS=$(listCompDirs $REPO $DIST)
       fi
-      echo "${EXPMODE} repository '${REPO}' in '${LOCATION}' from '${DIST}' distribution with '${COMPONENTS}' components."
+      echo -e "${YELLOW}${EXPMODE}${NC} repository '${WHITE}${REPO}${NC}' in '${WHITE}${LOCATION}${NC}' from '${WHITE}${DIST}${NC}' distribution with '${WHITE}${COMPONENTS}${NC}' components."
       echo
     done
   done
@@ -325,7 +332,7 @@ elif [ "$MODE" == "delete" ]; then
       if [ "$FLAG_COMPONENTS" != "1" ]; then
         COMPONENTS=$(listCompDirs $REPO $DIST)
       fi
-      echo "${EXPMODE} repository '${REPO}' in '${LOCATION}' from '${DIST}' distribution with '${COMPONENTS}' components."
+      echo -e "${RED}${EXPMODE}${NC} repository '${WHITE}${REPO}${NC}' in '${WHITE}${LOCATION}${NC}' from '${WHITE}${DIST}${NC}' distribution with '${WHITE}${COMPONENTS}${NC}' components."
       echo
     done
   done
