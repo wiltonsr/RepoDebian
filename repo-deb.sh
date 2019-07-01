@@ -10,6 +10,7 @@ COMPONENTS="main contrib non-free";
 ARCHITECTURES="i386 amd64 all";
 
 function validRepositories() {
+  set -e
   cd $LOCATION
   local VALID_REPOS=""
   for REPO in $(ls); do
@@ -22,12 +23,14 @@ function validRepositories() {
 }
 
 function listDistDirs() {
+  set -e
   REPOSITORY=$1
   DISTRIBUTION=$(ls $LOCATION/$REPOSITORY/dists)
   echo "$DISTRIBUTION"
 }
 
 function listCompDirs() {
+  set -e
   REPOSITORY=$1
   DISTRIBUTION=$2
   local COMPONENTS=""
@@ -39,7 +42,9 @@ function listCompDirs() {
   done
   echo "$COMPONENTS"
 }
+
 function updateDistReleaseConf () {
+  set -e
   REPOSITORIES=$1
   DISTRIBUTION=$2
   ARCHITECTURES=$3
@@ -54,6 +59,7 @@ EOF
 }
 
 function isLocationWritable () {
+  set -e
   mkdir -p $LOCATION
   if ! [ -w $LOCATION ]; then
     echo "You don't have permission to write in ${LOCATION}"
@@ -64,18 +70,20 @@ function isLocationWritable () {
 }
 
 function listArchDirs () {
-    REPOSITORY=$1
-    DISTRIBUTION=$2
-    COMP=$3
-    cd $LOCATION/$REPOSITORY
-    local ARCHITECTURES=$(ls -d dists/$DISTRIBUTION/$COMP/binary* |
-    awk '{n=split($1,A,"-"); print A[n]}' |
-    tr '\n' ' ')
-    echo "$ARCHITECTURES"
+  set -e
+  REPOSITORY=$1
+  DISTRIBUTION=$2
+  COMP=$3
+  cd $LOCATION/$REPOSITORY
+  local ARCHITECTURES=$(ls -d dists/$DISTRIBUTION/$COMP/binary* |
+  awk '{n=split($1,A,"-"); print A[n]}' |
+  tr '\n' ' ')
+  echo "$ARCHITECTURES"
 }
 
 # Create repository
 function createRepo () {
+  set -e
   if isLocationWritable; then
     mkdir -p $LOCATION/$REPOSITORIES/{dists,pool}
     for COMP in $COMPONENTS; do
@@ -115,6 +123,7 @@ EOF
 
 # Update repository
 function updateRepo() {
+  set -e
   if isLocationWritable; then
     for REPOSITORY in $REPOSITORIES; do
       if [ "$FLAG_DISTRIBUTION" != "1" ]; then
@@ -154,18 +163,60 @@ function updateRepo() {
   fi
 }
 
+# Delete repository
+function deleteRepo() {
+  set -e
+  if isLocationWritable; then
+    if [[ "$FLAG_REPOSITORIES" != "1" &&
+      "$FLAG_DISTRIBUTION" != "1" &&
+      "$FLAG_COMPONENTS" != "1" ]]; then
+      for REPOSITORY in $REPOSITORIES; do
+        rm -rf $LOCATION/$REPOSITORY
+      done
+    elif [[ "$FLAG_REPOSITORIES" == "1" &&
+      "$FLAG_DISTRIBUTION" != "1" &&
+      "$FLAG_COMPONENTS" != "1" ]]; then
+      for REPOSITORY in $REPOSITORIES; do
+        rm -rf $LOCATION/$REPOSITORY
+      done
+    elif [[ "$FLAG_REPOSITORIES" == "1" &&
+      "$FLAG_DISTRIBUTION" == "1" &&
+      "$FLAG_COMPONENTS" != "1" ]]; then
+      for REPOSITORY in $REPOSITORIES; do
+        for DIST in $DISTRIBUTION; do
+          rm -rf $LOCATION/$REPOSITORY/dists/$DIST
+          rm -rf $LOCATION/$REPOSITORY/pool/$DIST
+        done
+      done
+    elif [[ "$FLAG_REPOSITORIES" == "1" &&
+      "$FLAG_DISTRIBUTION" == "1" &&
+      "$FLAG_COMPONENTS" == "1" ]]; then
+      for REPOSITORY in $REPOSITORIES; do
+        for DIST in $DISTRIBUTION; do
+          for COMP in $COMPONENTS; do
+            rm -rf $LOCATION/$REPOSITORY/dists/$DIST/$COMP
+            rm -rf $LOCATION/$REPOSITORY/pool/$DIST/$COMP
+            FLAG_COMPONENTS=0
+            updateRepo
+          done
+        done
+      done
+    fi
+  fi
+}
 # Print the usage message
 function printHelp () {
   echo "Usage: "
-  echo "  repo-deb.sh -m create|update [-l <location>] [-r <repository>] [-d <distribution>] [-c '<list of components>'] [-a '<list of architectures>']"
+  echo "  repo-deb.sh -m create|update|delete [-l <location>] [-r <repository>] [-d <distribution>] [-c '<list of components>'] [-a '<list of architectures>']"
   echo "  repo-deb.sh -h (print this message)"
   echo "    -m <mode> - one of 'create' or 'update'"
   echo "      - 'create' - create all folders structure to start an Debian Repository"
   echo "      - 'update' - update an existing Debian Repository"
+  echo "      - 'delete' - delete an existing Debian Repository, distribution or components"
   echo "    -l <location> - filesystem location served by a webserver"
   echo "      (defaults to '${LOCATION}')"
   echo "    -r <repository> - name"
-  echo "      (defaults to '${REPOSITORY}')"
+  echo "      (defaults to '${REPOSITORIES}')"
   echo "    -d <distribution> - specifies a subdirectory in \$repo/dists."
   echo "      (defaults to '${DISTRIBUTION}')"
   echo "    -c <components> - specifies the subdirectories in \$repo/dists/\$distribution"
@@ -179,6 +230,7 @@ function printHelp () {
 
 # Ask user for confirmation to proceed
 function askProceed () {
+  set -e
   if [ "$FORCE" == "1" ]; then
     ans=y
   else
@@ -187,13 +239,16 @@ function askProceed () {
   case "$ans" in
     y|Y )
       echo "proceeding ..."
+      echo
       ;;
     n|N )
       echo "exiting..."
+      echo
       exit 1
       ;;
     * )
       echo "invalid response"
+      echo
       askProceed
       ;;
   esac
@@ -257,6 +312,23 @@ elif [ "$MODE" == "update" ]; then
       echo
     done
   done
+elif [ "$MODE" == "delete" ]; then
+  EXPMODE="Deleting"
+  if [ "$FLAG_REPOSITORIES" != "1" ]; then
+    REPOSITORIES=$(validRepositories)
+  fi
+  for REPO in $REPOSITORIES; do
+    if [ "$FLAG_DISTRIBUTION" != "1" ]; then
+      DISTRIBUTION=$(listDistDirs $REPO)
+    fi
+    for DIST in $DISTRIBUTION; do
+      if [ "$FLAG_COMPONENTS" != "1" ]; then
+        COMPONENTS=$(listCompDirs $REPO $DIST)
+      fi
+      echo "${EXPMODE} repository '${REPO}' in '${LOCATION}' from '${DIST}' distribution with '${COMPONENTS}' components."
+      echo
+    done
+  done
 else
   echo "Specify a valid execution mode."
   echo
@@ -277,6 +349,9 @@ if [ "${MODE}" == "create" ]; then
   echo "deb [trusted=yes] http://repository-address.com/$REPOSITORIES $DISTRIBUTION $COMPONENTS"
 elif [ "${MODE}" == "update" ]; then
   updateRepo
+  echo "All done!"
+elif [ "${MODE}" == "delete" ]; then
+  deleteRepo
   echo "All done!"
 else
   printHelp
