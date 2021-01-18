@@ -173,7 +173,7 @@ function updateRepo() {
           fi
           for ARCH in $ARCHITECTURES; do
             cd $LOCATION/$REPOSITORY/dists/$DIST/$COMP/binary-$ARCH
-            apt-ftparchive release -c release.conf > Release
+            apt-ftparchive release -c release.conf . > Release
           done
         done
 
